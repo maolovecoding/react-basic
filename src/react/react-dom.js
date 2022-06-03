@@ -32,6 +32,36 @@ const reconcileChildren = (children, parentDom) => {
     mount(child, parentDom);
   });
 };
+/**
+ * 挂载函数式组件
+ *
+ * 函数式组件的特点：
+ * 1. 必须接受一个props对象 并返回一个react元素（vdom）
+ * 2. 函数式组件必须首字母大写
+ * 3. 先定义后使用
+ * 4. 函数式组件 能 且只能 返回一个根节点
+ * 5. react元素不但可以是一个DOM标签字符串，也可以是函数
+ * @param {*} vdom
+ */
+const mountFunctionComponent = (vdom) => {
+  const { type, props } = vdom;
+  // 把属性对象传递给函数执行 返回要渲染的真实dom
+  const renderVdom = type(props);
+  // 函数式组件的vdom记录自己每次需要返回的老的vdom（子vdom）
+  vdom.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
+};
+/**
+ * 挂载类组件
+ * @param {*} vdom
+ */
+const mountClassComponent = (vdom) => {
+  const { type, props } = vdom;
+  // 创建类组件实例
+  const instance = new type(props);
+  const renderVdom = instance.render()
+  return createDOM(renderVdom)
+};
 
 /**
  * 虚拟dom转真实dom
@@ -43,6 +73,13 @@ const createDOM = (vdom) => {
   if (type === REACT_TEXT) {
     // 创建文本节点
     dom = document.createTextNode(props);
+  } else if (typeof type === "function") {
+    // 区分是函数式组件还是类组件
+    if (type.isReactComponent) {
+      // 类组件
+      return mountClassComponent(vdom);
+    }
+    return mountFunctionComponent(vdom);
   } else {
     dom = document.createElement(type);
   }

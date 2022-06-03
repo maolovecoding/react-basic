@@ -1,5 +1,6 @@
 import { REACT_ELEMENT } from "./constant";
 import { wrapToVDom } from "./utils";
+import { Component } from "./component";
 /**
  * 用来创建react元素（虚拟dom）的工厂方法
  * @param {*} type 类型
@@ -33,6 +34,7 @@ const createElement = function (type, config, children) {
 };
 const React = {
   createElement,
+  Component,
 };
 
 export default React;
