@@ -1,4 +1,4 @@
-import { REACT_TEXT } from "./constant";
+import { REACT_FORWARD_REF, REACT_TEXT } from "./constant";
 import { addEvent } from "./event";
 /**
  * 查找vdom对应的真实dom节点
@@ -96,12 +96,24 @@ const mountFunctionComponent = (vdom) => {
  * @param {*} vdom
  */
 const mountClassComponent = (vdom) => {
-  const { type, props } = vdom;
+  const { type: ClassComponent, props, ref } = vdom;
   // 创建类组件实例
-  const instance = new type(props);
+  const instance = new ClassComponent(props);
+  // 让ref.current指向类组件实例
+  if (ref) ref.current = instance;
   const renderVdom = instance.render();
   // 把上一次render渲染得到的虚拟dom挂载到组件实例和组件虚拟dom上
   vdom.oldRenderVdom = instance.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
+};
+/**
+ * 给函数式组件返回的vdom添加转发的ref
+ * @param {*} vdom 函数组件自身的vdom
+ */
+const mountForwardComponent = (vdom) => {
+  const { type, props, ref } = vdom;
+  const renderVdom = type.render(props, ref);
+  vdom.oldRenderVdom = renderVdom;
   return createDOM(renderVdom);
 };
 
@@ -110,8 +122,12 @@ const mountClassComponent = (vdom) => {
  * @param {*} vdom
  */
 const createDOM = (vdom) => {
-  const { type, props } = vdom;
+  const { type, props, ref } = vdom;
   let dom;
+  // 转发ref的高阶函数
+  if (type?.$$typeof === REACT_FORWARD_REF) {
+    return mountForwardComponent(vdom);
+  }
   if (type === REACT_TEXT) {
     // 创建文本节点
     dom = document.createTextNode(props);
@@ -136,6 +152,8 @@ const createDOM = (vdom) => {
   }
   // 虚拟节点记录真实dom
   vdom.dom = dom;
+  // 原生组件ref
+  if (ref) ref.current = dom;
   return dom;
 };
 /**

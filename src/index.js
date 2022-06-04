@@ -1,5 +1,9 @@
 import React from "./react";
 import ReactDOM from "./react/react-dom";
+// import React from "react";
+// import ReactDOM from "react-dom";
+import Sum from "./test/ref";
+
 // const element = React.createElement(
 //   "div",
 //   {
@@ -36,8 +40,7 @@ class ClassComponent extends React.Component {
   handleClick = (e) => {
     // 阻止冒泡
     // e.stopPropagation();
-    debugger
-    
+
     // 批量更新 是异步的 会在方法执行结束后更新
     this.setState((state) => ({ counter: state.counter + 1 }));
     console.log(this.state);
@@ -51,18 +54,18 @@ class ClassComponent extends React.Component {
     //   console.log(this.state);
     // });
   };
-  handleDivClick = (event)=>{
-    console.log(event)
-  }
+  handleDivClick = (event) => {
+    console.log(event);
+  };
   render() {
     return (
       <div onClick={this.handleDivClick} style={{ color: "red" }}>
         <div className="a">
-        <h3>计数器：{this.state.counter}</h3>
-        <button onClick={this.handleClick}>+1</button>
+          <h3>计数器：{this.state.counter}</h3>
+          <button onClick={this.handleClick}>+1</button>
         </div>
       </div>
     );
   }
 }
-ReactDOM.render(<ClassComponent />, document.getElementById("root"));
+ReactDOM.render(<Sum />, document.getElementById("root"));
