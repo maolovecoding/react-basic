@@ -1,5 +1,34 @@
 import { REACT_TEXT } from "./constant";
 /**
+ * 查找vdom对应的真实dom节点
+ * 类组件和函数组件本身是没有dom的，只是render或者函数组件的返回值才具有真实dom
+ * @param {*} vdom
+ * @returns
+ */
+export function findDOM(vdom) {
+  if (!vdom) return null;
+  // vdom有dom属性 说明这个vdom是原生组件（span div）等 直接返回对应的真实dom
+  if (vdom.dom) return vdom.dom;
+  else {
+    // 类组件 函数式组件
+    const renderVdom = vdom.oldRenderVdom;
+    return findDOM(renderVdom);
+  }
+}
+/**
+ * 比较两个虚拟节点 vdom -> diff
+ * @param {*} parent 父dom节点
+ * @param {*} oldVdom 老vdom
+ * @param {*} newVdom 新vdom
+ */
+export function compareToVdom(parent, oldVdom, newVdom) {
+  // 获取老的真实dom
+  const oldDOM = findDOM(oldVdom);
+  // 创建新的真实dom
+  const newDOM = createDOM(newVdom);
+  parent.replaceChild(newDOM, oldDOM);
+}
+/**
  * 更新dom节点的属性值
  * @param {*} dom
  * @param {*} oldProps
@@ -13,7 +42,11 @@ const updateProps = (dom, oldProps = {}, newProps = {}) => {
       for (const attr in styleObj) {
         dom.style[attr] = styleObj[attr];
       }
+    } else if (/^on[A-Z].*/.test(key)) {
+      // 绑定事件
+      dom.addEventListener(key.slice(2).toLocaleLowerCase(), newProps[key]);
     } else {
+      // 普通属性
       dom[key] = newProps[key];
     }
   }
@@ -53,14 +86,20 @@ const mountFunctionComponent = (vdom) => {
 };
 /**
  * 挂载类组件
+ * 类组件的数据来源有两个：
+ * 1. 父组件传递过来的 属性
+ * 2. 组件自身的状态
+ * 3. 在类组件里面有些方法的this是绑定为组件实例了 如render
  * @param {*} vdom
  */
 const mountClassComponent = (vdom) => {
   const { type, props } = vdom;
   // 创建类组件实例
   const instance = new type(props);
-  const renderVdom = instance.render()
-  return createDOM(renderVdom)
+  const renderVdom = instance.render();
+  // 把上一次render渲染得到的虚拟dom挂载到组件实例和组件虚拟dom上
+  vdom.oldRenderVdom = instance.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
 };
 
 /**
