@@ -39,6 +39,10 @@ export class Component {
     const newRenderVdom = this.render();
     compareToVdom(oldDOM.parentNode, oldRenderVdom, newRenderVdom);
     this.oldRenderVdom = newRenderVdom;
+    // TODO 生命周期 componentDidUpdate
+    if(typeof this.componentDidUpdate === "function"){
+      this.componentDidUpdate()
+    }
   }
 }
 /**
@@ -108,8 +112,24 @@ class Updater {
  * @param {*} nextState 需要更新的新状态
  */
 function shouldUpdate(classInstance, nextState) {
+  // 默认情况更新state改变更新组件
+  let willUpdate = true;
+  // 有该方法且返回值是true或者没有该方法 则更新组件 重新渲染页面
+  // TODO 生命周期 shouldComponentUpdate
+  if (
+    typeof classInstance.shouldComponentUpdate === "function" &&
+    !classInstance.shouldComponentUpdate(null, nextState)
+  ) {
+    willUpdate = false;
+  }
+  if (willUpdate && typeof classInstance.componentWillUpdate === "function") {
+    // TODO 生命周期 componentWillUpdate
+    classInstance.componentWillUpdate();
+  }
   // 更新state的值
   classInstance.state = nextState;
-  // 强制更新
-  classInstance.forceUpdate();
+  if (willUpdate) {
+    // 强制更新
+    classInstance.forceUpdate();
+  }
 }

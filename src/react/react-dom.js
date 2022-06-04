@@ -101,10 +101,20 @@ const mountClassComponent = (vdom) => {
   const instance = new ClassComponent(props);
   // 让ref.current指向类组件实例
   if (ref) ref.current = instance;
+  // TODO 生命周期 componentWillMount
+  if (typeof instance.componentWillMount === "function") {
+    instance.componentWillMount();
+  }
   const renderVdom = instance.render();
   // 把上一次render渲染得到的虚拟dom挂载到组件实例和组件虚拟dom上
   vdom.oldRenderVdom = instance.oldRenderVdom = renderVdom;
-  return createDOM(renderVdom);
+  // 生成vdom对应的真实dom
+  const dom = createDOM(renderVdom);
+  if (typeof instance.componentDidMount === "function") {
+    // TODO 记录下生命周期（此时dom还未挂载到页面） componentDidMount
+    dom.componentDidMount = instance.componentDidMount.bind(instance);
+  }
+  return dom;
 };
 /**
  * 给函数式组件返回的vdom添加转发的ref
@@ -171,7 +181,16 @@ const render = (vdom, container) => {
  */
 const mount = (vdom, container) => {
   const newDOM = createDOM(vdom);
-  container.appendChild(newDOM);
+  if (newDOM) {
+    // 组件挂载 元素挂载等
+    container.appendChild(newDOM);
+    // TODO 执行componentDidMount 对于类组件来说 类组件实例只会在初始化阶段创建 所以只有最开始的dom对象才会记录到当前生命周期
+    // 后续更新不会走这一步 因为不管是重新创建dom还是进行diff以后复用dom
+    // 重新创建dom不会绑定上组件实例的该生命周期了
+    // 复用dom不会再来到这个挂载方法里
+    if (typeof newDOM.componentDidMount === "function")
+      newDOM.componentDidMount();
+  }
 };
 const ReactDOM = {
   render,

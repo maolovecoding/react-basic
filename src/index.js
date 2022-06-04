@@ -2,7 +2,7 @@ import React from "./react";
 import ReactDOM from "./react/react-dom";
 // import React from "react";
 // import ReactDOM from "react-dom";
-import Sum from "./test/ref";
+import Sum from "./test/lifecycle";
 
 // const element = React.createElement(
 //   "div",
