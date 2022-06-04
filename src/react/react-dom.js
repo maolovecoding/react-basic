@@ -1,4 +1,5 @@
 import { REACT_TEXT } from "./constant";
+import { addEvent } from "./event";
 /**
  * 查找vdom对应的真实dom节点
  * 类组件和函数组件本身是没有dom的，只是render或者函数组件的返回值才具有真实dom
@@ -28,6 +29,7 @@ export function compareToVdom(parent, oldVdom, newVdom) {
   const newDOM = createDOM(newVdom);
   parent.replaceChild(newDOM, oldDOM);
 }
+
 /**
  * 更新dom节点的属性值
  * @param {*} dom
@@ -43,8 +45,9 @@ const updateProps = (dom, oldProps = {}, newProps = {}) => {
         dom.style[attr] = styleObj[attr];
       }
     } else if (/^on[A-Z].*/.test(key)) {
-      // 绑定事件
-      dom.addEventListener(key.slice(2).toLocaleLowerCase(), newProps[key]);
+      // 绑定事件  合成事件
+      // dom.addEventListener(key.slice(2).toLocaleLowerCase(), newProps[key]);
+      addEvent(dom, key.toLocaleLowerCase(), newProps[key]);
     } else {
       // 普通属性
       dom[key] = newProps[key];
