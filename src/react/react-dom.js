@@ -1,4 +1,4 @@
-import { REACT_FORWARD_REF, REACT_TEXT } from "./constant";
+import { REACT_ELEMENT, REACT_FORWARD_REF, REACT_TEXT } from "./constant";
 import { addEvent } from "./event";
 /**
  * 查找vdom对应的真实dom节点
@@ -12,7 +12,11 @@ export function findDOM(vdom) {
   if (vdom.dom) return vdom.dom;
   else {
     // 类组件 函数式组件
-    const renderVdom = vdom.oldRenderVdom;
+    // 类组件的需要渲染的vdom在组件实例上 vdom.classInstance.oldRenderVdom
+    // 函数式组件的就直接在 vdom.oldRenderVdom上
+    const renderVdom = vdom.classInstance
+      ? vdom.classInstance.oldRenderVdom
+      : vdom.oldRenderVdom;
     return findDOM(renderVdom);
   }
 }
@@ -22,12 +26,153 @@ export function findDOM(vdom) {
  * @param {*} oldVdom 老vdom
  * @param {*} newVdom 新vdom
  */
-export function compareToVdom(parent, oldVdom, newVdom) {
-  // 获取老的真实dom
-  const oldDOM = findDOM(oldVdom);
-  // 创建新的真实dom
-  const newDOM = createDOM(newVdom);
-  parent.replaceChild(newDOM, oldDOM);
+export function compareToVdom(parent, oldVdom, newVdom, nextDOM) {
+  // 新旧vdom都是null
+  if (!oldVdom && !newVdom) {
+    return;
+  }
+  if (oldVdom && !newVdom) {
+    // 需要卸载老节点
+    unMountVdom(oldVdom);
+  } else if (!oldVdom && newVdom) {
+    // 插入新节点
+    const newDOM = createDOM(newVdom);
+    if (nextDOM) {
+      // 有下一个兄弟节点 插在兄弟节点前面
+      parent.insertBefore(newDOM, nextDOM);
+    } else {
+      parent.appendChild(newDOM);
+    }
+    // TODO 组件挂载生命周期 componentDidMount 在创建的时候放在了dom元素上了
+    newDOM.componentDidMount && newDOM.componentDidMount();
+  } else if (oldVdom && newVdom) {
+    // 新旧节点都存在
+    if (oldVdom.type !== newVdom.type) {
+      // 1. 新旧节点类型不同
+      unMountVdom(oldVdom);
+      const newDOM = createDOM(newVdom);
+      if (nextDOM) {
+        // 有下一个兄弟节点 插在兄弟节点前面
+        parent.insertBefore(newDOM, nextDOM);
+      } else {
+        parent.appendChild(newDOM);
+      }
+      // TODO 组件挂载生命周期 componentDidMount 在创建的时候放在了dom元素上了
+      newDOM.componentDidMount && newDOM?.componentDidMount();
+    } else {
+      // TODO 新旧节点类型相同 走diff算法
+      updateElement(oldVdom, newVdom);
+    }
+  }
+}
+/**
+ * diff算法 对比新旧虚拟dom
+ * @param {*} oldVdom
+ * @param {*} newVdom
+ */
+function updateElement(oldVdom, newVdom) {
+  const currentDOM = (newVdom.dom = findDOM(oldVdom));
+  if (oldVdom.type === REACT_TEXT) {
+    // 1. 都是文本节点
+    if (oldVdom.props !== newVdom.props) {
+      // 更新dom的文本内容即可
+      currentDOM.textContent = newVdom.props;
+    }
+  } else if (typeof oldVdom.type === "string") {
+    // 是普通元素节点 div a
+    // 更新属性
+    updateProps(currentDOM, oldVdom.props, newVdom.props);
+    // 更新子节点
+    updateChildren(currentDOM, oldVdom.props.children, newVdom.props.children);
+  } else if (typeof oldVdom.type === "function") {
+    // 类组件
+    if (oldVdom.type.isReactComponent) {
+      updateClassComponent(oldVdom, newVdom);
+    } else {
+      // 函数式组件
+      updateFunctionComponent(oldVdom, newVdom);
+    }
+  }
+}
+/**
+ * 更新类组件
+ * @param {*} oldVdom
+ * @param {*} newVdom
+ */
+function updateClassComponent(oldVdom, newVdom) {
+  // 让新的组件的vdom记录组件实例 进行实例的复用
+  const instance = (newVdom.classInstance = oldVdom.classInstance);
+  // TODO 生命周期 componentWillReceiveProps 组件更新 接收新props时触发
+  instance?.componentWillReceiveProps(newVdom.props);
+  instance.updater.emitUpdate(newVdom.props);
+}
+/**
+ * 更新函数式组件
+ * @param {*} oldVdom
+ * @param {*} newVdom
+ */
+function updateFunctionComponent(oldVdom, newVdom) {
+  const parentDOM = findDOM(oldVdom)?.parentNode;
+  if (!parentDOM) return;
+  const { type, props } = newVdom;
+  const newRenderVdom = type(props);
+  compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
+  newVdom.oldRenderVdom = newRenderVdom;
+}
+/**
+ * 对比更新子节点
+ * dom diff 原则：
+ * 1. 只比较同级的节点 不考虑跨节点层级的移动
+ * 2. 相同的类型 生成相同的DOM 不同的类型不能复用
+ * @param {*} parentDOM
+ * @param {Array|object} oldVChildren
+ * @param {Array|object} newVChildren
+ */
+function updateChildren(parentDOM, oldVChildren, newVChildren) {
+  oldVChildren = Array.isArray(oldVChildren) ? oldVChildren : [oldVChildren];
+  // 过滤空元素
+  oldVChildren = oldVChildren.filter((item) => item);
+  newVChildren = (
+    Array.isArray(newVChildren) ? newVChildren : [newVChildren]
+  ).filter((item) => item);
+  let maxLen = Math.max(oldVChildren.length, newVChildren.length);
+  for (let i = 0; i < maxLen; i++) {
+    // 找到索引大于当前索引 并且存在真实DOM的那个虚拟DOM 也就是当前要插入子节点的那个兄弟节点
+    let nextVdom = oldVChildren.find(
+      (item, index) => index > i && item && findDOM(item)
+    );
+    compareToVdom(
+      parentDOM,
+      oldVChildren[i],
+      newVChildren[i],
+      nextVdom && findDOM(nextVdom)
+    );
+  }
+}
+/**
+ * 卸载dom元素
+ * @param {*} vdom
+ */
+function unMountVdom(vdom) {
+  const { type, props, ref } = vdom;
+  // 获取真实的dom对象
+  const currentDOM = findDOM(vdom);
+  // TODO 子组件生命周期 componentWillUnmount
+  // 类组件的vdom上 具有组件实例对象 卸载组件
+  vdom.classInstance?.componentWillUnmount();
+  if (ref) {
+    ref.current = null;
+  }
+  // 递归删除子节点
+  let children = props.children;
+  if (children) {
+    children = Array.isArray(children) ? children : [children];
+    children.forEach(unMountVdom);
+  }
+  if (currentDOM) {
+    // 卸载自己
+    currentDOM.parentNode.removeChild(currentDOM);
+  }
 }
 
 /**
@@ -97,8 +242,8 @@ const mountFunctionComponent = (vdom) => {
  */
 const mountClassComponent = (vdom) => {
   const { type: ClassComponent, props, ref } = vdom;
-  // 创建类组件实例
-  const instance = new ClassComponent(props);
+  // 创建类组件实例 并且把实例挂载到组件的vdom上
+  const instance = (vdom.classInstance = new ClassComponent(props));
   // 让ref.current指向类组件实例
   if (ref) ref.current = instance;
   // TODO 生命周期 componentWillMount
@@ -106,8 +251,8 @@ const mountClassComponent = (vdom) => {
     instance.componentWillMount();
   }
   const renderVdom = instance.render();
-  // 把上一次render渲染得到的虚拟dom挂载到组件实例和组件虚拟dom上
-  vdom.oldRenderVdom = instance.oldRenderVdom = renderVdom;
+  // 把上一次render渲染得到的虚拟dom挂载到组件实例上
+  instance.oldRenderVdom = renderVdom;
   // 生成vdom对应的真实dom
   const dom = createDOM(renderVdom);
   if (typeof instance.componentDidMount === "function") {

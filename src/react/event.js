@@ -30,13 +30,15 @@ function dispatchEvent(nativeEvent) {
   const syntheticEvent = createSyntheticEvent(nativeEvent);
   while (target) {
     const { _store } = target;
-    const handler = _store&&  _store[eventType]
+    // const handler = _store&&  _store[eventType]
     _store && _store[eventType] && _store[eventType](syntheticEvent);
     // 阻止冒泡
     if (syntheticEvent.isPropagationStopped) break;
     // 向上冒泡
     target = target.parentNode;
   }
+  // 设置批量更新为false 防止出现先更新完父组件 再更新子组件的情况 在批更新的时候提前置为false即可
+  // updateQueue.isBatchingUpdate = false;
   updateQueue.batchUpdate(); // 批量更新
 }
 
