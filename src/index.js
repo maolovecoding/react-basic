@@ -70,4 +70,4 @@
 // }
 // ReactDOM.render(<Sum />, document.getElementById("root"));
 
-import "./test/1.子组件的生命周期"
+import "./test/2.DOM-diff"

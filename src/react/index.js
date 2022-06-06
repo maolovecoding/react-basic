@@ -43,11 +43,18 @@ function forwardRef(render) {
   };
 }
 
+const Children = {
+  map(children, mapFn) {
+    // 打平二维数组为一维
+  },
+};
+
 const React = {
   createElement,
   Component,
   createRef,
   forwardRef,
+  Children,
 };
 
 export default React;

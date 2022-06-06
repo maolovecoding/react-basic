@@ -1,4 +1,4 @@
-import { REACT_ELEMENT, REACT_FORWARD_REF, REACT_TEXT } from "./constant";
+import { REACT_FORWARD_REF, REACT_TEXT, MOVE, PLACEMENT } from "./constant";
 import { addEvent } from "./event";
 /**
  * 查找vdom对应的真实dom节点
@@ -135,19 +135,80 @@ function updateChildren(parentDOM, oldVChildren, newVChildren) {
   newVChildren = (
     Array.isArray(newVChildren) ? newVChildren : [newVChildren]
   ).filter((item) => item);
-  let maxLen = Math.max(oldVChildren.length, newVChildren.length);
-  for (let i = 0; i < maxLen; i++) {
-    // 找到索引大于当前索引 并且存在真实DOM的那个虚拟DOM 也就是当前要插入子节点的那个兄弟节点
-    let nextVdom = oldVChildren.find(
-      (item, index) => index > i && item && findDOM(item)
-    );
-    compareToVdom(
-      parentDOM,
-      oldVChildren[i],
-      newVChildren[i],
-      nextVdom && findDOM(nextVdom)
-    );
-  }
+  const keyedOldMap = {};
+  // 不需要移动的元素的最大索引
+  let lastPlacedIndex = 0;
+  oldVChildren.forEach(
+    // key : vdom
+    (oldVChild, index) => (keyedOldMap[oldVChild.key || index] = oldVChild)
+  );
+  const patch = [];
+  newVChildren.forEach(
+    // key : vdom
+    (newVChild, index) => {
+      const newKey = newVChild.key || index;
+      // 找到了老的节点 可以复用
+      const oldVChild = keyedOldMap[newKey];
+      if (oldVChild) {
+        // 更老节点上的属性为最新值
+        updateElement(oldVChild, newVChild);
+        // 节点移动
+        if (oldVChild.mountIndex < lastPlacedIndex) {
+          patch.push({
+            type: MOVE,
+            oldVChild,
+            newVChild,
+            mountIndex: index,
+          });
+        }
+        delete keyedOldMap[newKey];
+        lastPlacedIndex = Math.max(lastPlacedIndex, oldVChild.mountIndex);
+      } else {
+        // 插入新节点
+        patch.push({
+          type: PLACEMENT,
+          newVChild,
+          mountIndex: index,
+        });
+      }
+    }
+  );
+  // 获取所有需要移动的老节点
+  const moveVChild = patch
+    .filter((action) => action.type === MOVE)
+    .map((action) => action.oldVChild);
+  // 把没有复用的老节点 dom节点全部移除
+  // 也就是把 需要移动的，需要删除的节点 都先直接删除 这里是从dom树中移除不服用的dom节点
+  // 实际上dom元素还是在vdom上保留了引用 可以在下面处理移动的时候在重新插入到dom树中
+  Object.values(keyedOldMap)
+    .concat(moveVChild)
+    .forEach((oldVChild) => {
+      const currentDOM = findDOM(oldVChild);
+      parentDOM.removeChild(currentDOM);
+    });
+  // 需要打补丁
+  if (patch.length)
+    patch.forEach((action) => {
+      const { type, oldVChild, newVChild, mountIndex } = action;
+      // 这里拿到的子节点dom数组 都是不需要移动的dom
+      const childNodes = parentDOM.childNodes;
+      let currentDOM;
+      if (type === PLACEMENT) {
+        // 插入
+        currentDOM = createDOM(newVChild);
+      } else if (type === MOVE) {
+        // 移动 获取dom的引用
+        currentDOM = findDOM(oldVChild);
+      }
+      const childNode = childNodes[mountIndex];
+      // if (childNode) {
+      //   parentDOM.insertBefore(currentDOM, childNode);
+      // } else {
+      //   parentDOM.appendChild(currentDOM);
+      // }
+      // 在 第二个参数 也就是指定插入的节点不存在时  会自动转为 appendChild
+      parentDOM.insertBefore(currentDOM, childNode);
+    });
 }
 /**
  * 卸载dom元素
@@ -210,6 +271,7 @@ const updateProps = (dom, oldProps = {}, newProps = {}) => {
  */
 const reconcileChildren = (children, parentDom) => {
   children.forEach((child, index) => {
+    child.mountIndex = index;
     mount(child, parentDom);
   });
 };
@@ -300,6 +362,7 @@ const createDOM = (vdom) => {
     updateProps(dom, null, props);
     const children = props.children;
     if (typeof children === "object" && children.type) {
+      children.mountIndex = 0;
       mount(children, dom);
     } else if (Array.isArray(children)) {
       reconcileChildren(children, dom);
