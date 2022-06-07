@@ -42,6 +42,10 @@ export class Component {
     const oldRenderVdom = this.oldRenderVdom;
     // 获取vdom对应的真实dom
     const oldDOM = findDOM(this.oldRenderVdom);
+    // TODO  更新 context
+    if (this.constructor.contextType) {
+      this.context = this.constructor.contextType._currentValue;
+    }
     // TODO 在类组件上的生命周期 静态的  getDeriveStateFromProps
     if (this.constructor.getDerivedStateFromProps) {
       const newState = this.constructor.getDerivedStateFromProps(

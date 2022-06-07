@@ -1,4 +1,9 @@
-import { REACT_ELEMENT, REACT_FORWARD_REF } from "./constant";
+import {
+  REACT_CONTEXT,
+  REACT_ELEMENT,
+  REACT_FORWARD_REF,
+  REACT_PROVIDER,
+} from "./constant";
 import { wrapToVDom } from "./utils";
 import { Component } from "./component";
 /**
@@ -48,6 +53,22 @@ const Children = {
     // 打平二维数组为一维
   },
 };
+// 实现context
+function createContext(initialValue) {
+  const context = {
+    $$typeof: REACT_CONTEXT,
+    _currentValue: initialValue,
+  };
+  context.Consumer = {
+    $$typeof: REACT_CONTEXT,
+    _context: context, // 指向自己
+  };
+  context.Provider = {
+    $$typeof: REACT_PROVIDER,
+    _context: context,
+  };
+  return context;
+}
 
 const React = {
   createElement,
@@ -55,6 +76,7 @@ const React = {
   createRef,
   forwardRef,
   Children,
+  createContext,
 };
 
 export default React;

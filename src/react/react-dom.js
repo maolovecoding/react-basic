@@ -1,4 +1,11 @@
-import { REACT_FORWARD_REF, REACT_TEXT, MOVE, PLACEMENT } from "./constant";
+import {
+  REACT_FORWARD_REF,
+  REACT_TEXT,
+  MOVE,
+  PLACEMENT,
+  REACT_CONTEXT,
+  REACT_PROVIDER,
+} from "./constant";
 import { addEvent } from "./event";
 /**
  * 查找vdom对应的真实dom节点
@@ -72,7 +79,12 @@ export function compareToVdom(parent, oldVdom, newVdom, nextDOM) {
  */
 function updateElement(oldVdom, newVdom) {
   const currentDOM = (newVdom.dom = findDOM(oldVdom));
-  if (oldVdom.type === REACT_TEXT) {
+  // 处理上下文逻辑 提供 消费
+  if (oldVdom.type.$$typeof === REACT_CONTEXT) {
+    updateConsumerComponent(oldVdom, newVdom);
+  } else if (oldVdom.type.$$typeof === REACT_PROVIDER) {
+    updateProviderComponent(oldVdom, newVdom);
+  } else if (oldVdom.type === REACT_TEXT) {
     // 1. 都是文本节点
     if (oldVdom.props !== newVdom.props) {
       // 更新dom的文本内容即可
@@ -93,6 +105,26 @@ function updateElement(oldVdom, newVdom) {
       updateFunctionComponent(oldVdom, newVdom);
     }
   }
+}
+
+function updateConsumerComponent(oldVdom, newVdom) {
+  const parentDOM = findDOM(oldVdom)?.parentNode;
+  if (!parentDOM) return;
+  const { type: Consumer, props } = newVdom;
+  const context = Consumer._context;
+  const newRenderVdom = props.children(context._currentValue);
+  compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
+  newVdom.oldRenderVdom = newRenderVdom;
+}
+function updateProviderComponent(oldVdom, newVdom) {
+  const parentDOM = findDOM(oldVdom)?.parentNode;
+  if (!parentDOM) return;
+  const { type: Provider, props } = newVdom;
+  const context = Provider._context;
+  context._currentValue = props.value;
+  const newRenderVdom = props.children;
+  compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
+  newVdom.oldRenderVdom = newRenderVdom;
 }
 /**
  * 更新类组件
@@ -307,6 +339,10 @@ const mountClassComponent = (vdom) => {
   const { type: ClassComponent, props, ref } = vdom;
   // 创建类组件实例 并且把实例挂载到组件的vdom上
   const instance = (vdom.classInstance = new ClassComponent(props));
+  // TODO 给类组件添加上下文对象
+  if (ClassComponent.contextType) {
+    instance.context = ClassComponent.contextType._currentValue;
+  }
   // 让ref.current指向类组件实例
   if (ref) ref.current = instance;
   // TODO 生命周期 componentWillMount
@@ -335,6 +371,28 @@ const mountForwardComponent = (vdom) => {
   return createDOM(renderVdom);
 };
 
+const mountContextComponent = (vdom) => {
+  const { type: Consumer, props } = vdom;
+  // 创建的上下文对象
+  const context = Consumer._context;
+  // 取值 给子节点 子节点是函数children 函数返回值是我们的渲染结果
+  // 获取孩子vdom 组件本身不渲染 只渲染子节点即可
+  const renderVdom = props.children(context._currentValue);
+  vdom.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
+};
+const mountProviderComponent = (vdom) => {
+  const { type: Provider, props } = vdom;
+  // 创建的上下文对象
+  const context = Provider._context;
+  // 赋值
+  context._currentValue = props.value;
+  // 获取孩子vdom 组件本身不渲染 只渲染子节点即可
+  const renderVdom = props.children;
+  vdom.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
+};
+
 /**
  * 虚拟dom转真实dom
  * @param {*} vdom
@@ -345,6 +403,12 @@ const createDOM = (vdom) => {
   // 转发ref的高阶函数
   if (type?.$$typeof === REACT_FORWARD_REF) {
     return mountForwardComponent(vdom);
+  } else if (type?.$$typeof === REACT_CONTEXT) {
+    // context组件
+    return mountContextComponent(vdom);
+  } else if (type?.$$typeof === REACT_PROVIDER) {
+    // 消费组件
+    return mountProviderComponent(vdom);
   }
   if (type === REACT_TEXT) {
     // 创建文本节点

@@ -70,4 +70,4 @@
 // }
 // ReactDOM.render(<Sum />, document.getElementById("root"));
 
-import "./test/3-新的生命周期-getSnapshotBeforeUpdate"
+import "./test/4-context"
