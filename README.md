@@ -51,3 +51,187 @@ npm i cross-env -D
 
 - div#root1 react17
 - div#root2 react18
+
+### 安装CRA
+
+#### 支持装饰器
+
+```shell
+npm i react-app-rewired customize-cra @babel/plugin-proposal-decorators -D
+```
+
+#### 修改package.json的命令
+
+```json
+{
+  "start": "cross-env DISABLE_NEW_JSX_TRANSFORM=true react-app-rewired start",
+  "build": "cross-env DISABLE_NEW_JSX_TRANSFORM=true react-app-rewired build",
+  "test": "cross-env DISABLE_NEW_JSX_TRANSFORM=true react-app-rewired test",
+  "eject": "cross-env DISABLE_NEW_JSX_TRANSFORM=true react-app-rewired eject"
+}
+```
+
+#### 新键配置文件 config-overrides.js
+
+重写配置文件。
+
+```js
+const { override, addBabelPlugin } = require("customize-cra");
+
+module.exports = override(
+  addBabelPlugin([
+    "@babel/plugin-proposal-decorators",
+    {
+      // 启用老的模式
+      legacy: true,
+    },
+  ])
+);
+
+```
+
+### 高阶组件
+
+高阶组件的用法一般有两种：
+
+1. 属性代理
+2. 反向继承
+
+#### 属性代理
+
+```js
+import React from "../react";
+import ReactDOM from "../react/react-dom";
+
+
+const withLoading = (message) => (OldComponent) => {
+  return class extends React.Component {
+    state = {
+      show() {
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <p id="loading" style="position:absolute; top:100px; z-index:1; background:#bfa;">${message}</p>
+        `;
+        document.body.appendChild(div);
+      },
+      hidden() {
+        document.getElementById("loading").remove();
+      },
+    };
+    render() {
+      // 给老组件添加了一些额外的属性 state
+      return <OldComponent {...this.props} {...this.state} />;
+    }
+  };
+};
+
+// 写法二：装饰器写法
+// @withLoading("loading ......")
+class App extends React.Component {
+  render() {
+    return (
+      <div>
+        <h3>App</h3>
+        <button onClick={this.props.show}>show</button>
+        <button onClick={this.props.hidden}>hidden</button>
+      </div>
+    );
+  }
+}
+// 写法一：函数调用先传参 然后返回的函数再传入我们需要进行属性代理的组件
+// const WithLoadingApp = withLoading("loading......")(App);
+// ReactDOM.render(<WithLoadingApp />, document.querySelector("#root"));
+ReactDOM.render(<App />, document.querySelector("#root"));
+```
+
+#### 反向继承
+
+当你想改造一个第三方的组件库，又不能去改别人的源代码。可以使用高阶组件进行反向继承
+
+```js
+import React from "react";
+import ReactDOM from "react-dom";
+
+class Button extends React.Component {
+  state = {
+    name: "按钮",
+  };
+  componentWillMount() {
+    console.log("button componentWillMount ");
+  }
+  componentDidMount() {
+    console.log("button componentDidMount ");
+  }
+
+  render() {
+    console.log("button render");
+    return (
+      <button name={this.state.name} title={this.props.title}>
+        按钮
+      </button>
+    );
+  }
+}
+
+// 组件增强
+const enhancer = (OldComponent) =>
+  class extends OldComponent {
+    state = {
+      number: 0,
+    };
+    componentWillMount() {
+      console.log("enhancer button componentWillMount ");
+      super.componentWillMount();
+    }
+    componentDidMount() {
+      console.log("enhancer button componentDidMount ");
+      super.componentDidMount();
+    }
+    handleClick = () => {
+      this.setState({
+        number: this.state.number + 1,
+      });
+    };
+    render() {
+      console.log("enhancer button render");
+      const renderElement = super.render();
+      const newProps = {
+        ...renderElement,
+        ...this.state,
+        onClick: this.handleClick,
+      };
+      // 克隆元素 给其新的 props 第三个参数开始 都是其子元素
+      return React.cloneElement(renderElement, newProps, this.state.number);
+    }
+  };
+const EnhancerButton = enhancer(Button);
+class App extends React.Component {
+  render() {
+    return (
+      <div>
+        <h3>App</h3>
+        <EnhancerButton title={"我是标题"} />
+      </div>
+    );
+  }
+}
+ReactDOM.render(<App />, document.querySelector("#root"));
+
+```
+
+#### cloneElement函数实现原理
+
+```js
+function cloneElement(element, newProps, ...newChildren) {
+  let children = newChildren.filter((item) => item != null).map(wrapToVDom);
+  // 有新的子节点 就用新的覆盖老的 否则 不覆盖
+  if (children.length === 0) {
+    children = element.props?.children;
+  } else if (children.length === 1) children = children[0];
+  const props = { ...element.props, ...newProps, children };
+  return {
+    ...element,
+    props,
+  };
+}
+```

@@ -70,4 +70,4 @@
 // }
 // ReactDOM.render(<Sum />, document.getElementById("root"));
 
-import "./test/4-context"
+import "./test/5-高阶组件-反向继承";

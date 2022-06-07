@@ -70,6 +70,19 @@ function createContext(initialValue) {
   return context;
 }
 
+function cloneElement(element, newProps, ...newChildren) {
+  let children = newChildren.filter((item) => item != null).map(wrapToVDom);
+  // 有新的子节点 就用新的覆盖老的 否则 不覆盖
+  if (children.length === 0) {
+    children = element.props?.children;
+  } else if (children.length === 1) children = children[0];
+  const props = { ...element.props, ...newProps, children };
+  return {
+    ...element,
+    props,
+  };
+}
+
 const React = {
   createElement,
   Component,
@@ -77,6 +90,7 @@ const React = {
   forwardRef,
   Children,
   createContext,
+  cloneElement,
 };
 
 export default React;
