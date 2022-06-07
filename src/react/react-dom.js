@@ -103,7 +103,8 @@ function updateClassComponent(oldVdom, newVdom) {
   // 让新的组件的vdom记录组件实例 进行实例的复用
   const instance = (newVdom.classInstance = oldVdom.classInstance);
   // TODO 生命周期 componentWillReceiveProps 组件更新 接收新props时触发
-  instance?.componentWillReceiveProps(newVdom.props);
+  if (typeof instance.componentWillReceiveProps === "function")
+    instance.componentWillReceiveProps(newVdom.props);
   instance.updater.emitUpdate(newVdom.props);
 }
 /**

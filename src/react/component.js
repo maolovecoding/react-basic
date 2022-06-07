@@ -36,16 +36,38 @@ export class Component {
    * 让类组件强制更新 生成新的虚拟dom <--- 就是执行 render
    */
   forceUpdate() {
+    // TODO 获取老的props和state
+    const { oldProps: props, oldState: state } = this;
     // 获取组件实例上次render渲染的vdom
     const oldRenderVdom = this.oldRenderVdom;
     // 获取vdom对应的真实dom
     const oldDOM = findDOM(this.oldRenderVdom);
+    // TODO 在类组件上的生命周期 静态的  getDeriveStateFromProps
+    if (this.constructor.getDerivedStateFromProps) {
+      const newState = this.constructor.getDerivedStateFromProps(
+        this.props,
+        this.state
+      );
+      if (newState === undefined)
+        console.warn(
+          `${this.constructor}.getDerivedStateFromProps(): A valid state object (or null) must be returned. You have returned undefined.`
+        );
+      else if (newState !== null && typeof newState === "object") {
+        this.state = { ...this.state, ...newState };
+      }
+    }
+    // render -> vdom
     const newRenderVdom = this.render();
+    // TODO 生命周期 getSnapshotBeforeUpdate
+    const snapshot =
+      this.getSnapshotBeforeUpdate &&
+      this.getSnapshotBeforeUpdate(props, state);
+    // 更新vdom
     compareToVdom(oldDOM.parentNode, oldRenderVdom, newRenderVdom);
     this.oldRenderVdom = newRenderVdom;
     // TODO 生命周期 componentDidUpdate
     if (typeof this.componentDidUpdate === "function") {
-      this.componentDidUpdate();
+      this.componentDidUpdate(props, state, snapshot);
     }
   }
 }
@@ -138,6 +160,9 @@ function shouldUpdate(classInstance, nextProps, nextState) {
     // TODO 生命周期 componentWillUpdate
     classInstance.componentWillUpdate();
   }
+  // TODO 记录旧的state props
+  classInstance.oldProps = classInstance.props;
+  classInstance.oldState = classInstance.state;
   // 更新state的值 更新 props的值
   classInstance.state = nextState;
   if (nextProps) classInstance.props = nextProps;
