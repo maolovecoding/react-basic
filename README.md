@@ -396,3 +396,102 @@ ReactDOM.render(<WithTracker />, document.querySelector("#root"));
 
 1. react PureComponent
 2. react memo
+
+### hooks
+
+**Hook 是什么？** Hook 是一个特殊的函数，它可以让你“钩入” React 的特性。例如，useState 是允许你在 React 函数组件中添加 state 的 Hook。
+
+#### useState
+
+- useState 就是一个Hook
+- 通过在函数组件里面调用它来给组件添加一些内部的**state**,React会在重复渲染时保留这个state
+- useState会返回一对值，当前状态和一个让你更新它状态的函数，可以在事件处理函数或者其他一些地方调用这个函数，它类似于class组件的this.setState函数，但是它不会把新的state和旧的state合并
+- useState唯一参数就是初始State
+- 返回一个state，以及更新state的函数
+  - 在初始渲染期间，返回的状态（state）与传入的第一个参数(initState)值相同
+  - setState函数用来更新state，接收一个新的state的值，并将组件的一次重新渲染加入队列
+
+```js
+// TODO hooks变量存放位置
+const hookStates = []; // 保存hooks状态值
+let hookIndex = 0;
+let scheduleUpdate; // 调度更新
+/**
+ *
+ * @param {*} vdom
+ * @param {*} container
+ */
+const render = (vdom, container) => {
+  mount(vdom, container);
+  // 调度更新
+  scheduleUpdate = () => {
+    hookIndex = 0;
+    // 函数组件自身对应的vdom是一样的，但是状态和props可能是不一样的 所有最后生成的renderVdom是不一样的
+    compareToVdom(container, vdom, vdom);
+  };
+};
+/**
+ * useState hook的实现
+ * @param {*} initialState 初始值
+ * @returns
+ */
+export function useState(initialState) {
+  // 原来有值（函数组件更新了） 就用已经存在的值 没有则是第一次渲染 用初始值
+  hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
+  let currentIndex = hookIndex;
+  function setState(newState) {
+    // 更新 state
+    hookStates[currentIndex] = newState;
+    // 触发vdom对比更新
+    scheduleUpdate();
+  }
+  return [hookStates[hookIndex++], setState];
+}
+```
+
+#### useCallback + useMemo
+
+- 把内联回调函数及其依赖项数组作为参数传入**useCallback**，它将返回该回调函数的memoized版本，该回调函数仅在某个依赖项改变时才会更新
+- 把创建函数和依赖数组作为参数传入useMemo，它仅会在某个依赖项改变的时候才重新计算memoized的值。这种优化有助于避免在每次渲染时都进行高开销的计算。
+- 类似于Vue的计算属性
+- useCallback(fn, deps) 相当于 useMemo(() => fn, deps)。
+
+```js
+export function useMemo(factoryFn, deps) {
+  // 先判断有没有老的值
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldMemo, oldDeps] = hookStates[hookIndex];
+    // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
+    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    if (same) {
+      hookIndex++;
+      return oldMemo;
+    } else {
+      const newMemo = factoryFn();
+      hookStates[hookIndex++] = [newMemo, deps];
+      return newMemo;
+    }
+  } else {
+    const newMemo = factoryFn();
+    hookStates[hookIndex++] = [newMemo, deps];
+    return newMemo;
+  }
+}
+export function useCallback(callback, deps) {
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldCallback, oldDeps] = hookStates[hookIndex];
+    // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
+    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    if (same) {
+      hookIndex++;
+      return oldCallback;
+    } else {
+      hookStates[hookIndex++] = [callback, deps];
+      return callback;
+    }
+  } else {
+    hookStates[hookIndex++] = [callback, deps];
+    return callback;
+  }
+}
+```

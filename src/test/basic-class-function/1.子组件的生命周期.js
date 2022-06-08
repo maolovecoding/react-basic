@@ -1,5 +1,5 @@
-import React from "../react";
-import ReactDOM from "../react/react-dom";
+import React from "../../react";
+import ReactDOM from "../../react/react-dom";
 
 class App extends React.Component {
   constructor(props) {

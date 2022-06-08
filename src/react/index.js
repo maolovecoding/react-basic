@@ -7,6 +7,7 @@ import {
 } from "./constant";
 import { shallowEqual, wrapToVDom } from "./utils";
 import { Component, PureComponent } from "./component";
+import { useState, useCallback, useMemo } from "./react-dom";
 /**
  * 用来创建react元素（虚拟dom）的工厂方法
  * @param {*} type 类型
@@ -106,6 +107,9 @@ const React = {
   createContext,
   cloneElement,
   memo,
+  useState,
+  useMemo,
+  useCallback,
 };
 
 export default React;
@@ -119,4 +123,7 @@ export {
   createContext,
   cloneElement,
   memo,
+  useState,
+  useMemo,
+  useCallback,
 };

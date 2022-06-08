@@ -8,6 +8,79 @@ import {
   REACT_MEMO,
 } from "./constant";
 import { addEvent } from "./event";
+// TODO hooks变量存放位置
+const hookStates = []; // 保存hooks状态值
+let hookIndex = 0;
+let scheduleUpdate; // 调度更新
+/**
+ *
+ * @param {*} vdom
+ * @param {*} container
+ */
+const render = (vdom, container) => {
+  mount(vdom, container);
+  // 调度更新
+  scheduleUpdate = () => {
+    hookIndex = 0;
+    // 函数组件自身对应的vdom是一样的，但是状态和props可能是不一样的 所有最后生成的renderVdom是不一样的
+    compareToVdom(container, vdom, vdom);
+  };
+};
+/**
+ * useState hook的实现
+ * @param {*} initialState 初始值
+ * @returns
+ */
+export function useState(initialState) {
+  // 原来有值（函数组件更新了） 就用已经存在的值 没有则是第一次渲染 用初始值
+  hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
+  let currentIndex = hookIndex;
+  function setState(newState) {
+    // 更新 state
+    hookStates[currentIndex] = newState;
+    // 触发vdom对比更新
+    scheduleUpdate();
+  }
+  return [hookStates[hookIndex++], setState];
+}
+
+export function useMemo(factoryFn, deps) {
+  // 先判断有没有老的值
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldMemo, oldDeps] = hookStates[hookIndex];
+    // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
+    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    if (same) {
+      hookIndex++;
+      return oldMemo;
+    } else {
+      const newMemo = factoryFn();
+      hookStates[hookIndex++] = [newMemo, deps];
+      return newMemo;
+    }
+  } else {
+    const newMemo = factoryFn();
+    hookStates[hookIndex++] = [newMemo, deps];
+    return newMemo;
+  }
+}
+export function useCallback(callback, deps) {
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldCallback, oldDeps] = hookStates[hookIndex];
+    // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
+    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    if (same) {
+      hookIndex++;
+      return oldCallback;
+    } else {
+      hookStates[hookIndex++] = [callback, deps];
+      return callback;
+    }
+  } else {
+    hookStates[hookIndex++] = [callback, deps];
+    return callback;
+  }
+}
 /**
  * 查找vdom对应的真实dom节点
  * 类组件和函数组件本身是没有dom的，只是render或者函数组件的返回值才具有真实dom
@@ -151,6 +224,7 @@ function updateFunctionComponent(oldVdom, newVdom) {
   const parentDOM = findDOM(oldVdom)?.parentNode;
   if (!parentDOM) return;
   const { type, props } = newVdom;
+  // 即使函数组件的vdom是一样的 oldVdom === newVdom 但是生成的renderVdom也不一定是一样的
   const newRenderVdom = type(props);
   compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
   newVdom.oldRenderVdom = newRenderVdom;
@@ -481,14 +555,7 @@ const createDOM = (vdom) => {
   if (ref) ref.current = dom;
   return dom;
 };
-/**
- *
- * @param {*} vdom
- * @param {*} container
- */
-const render = (vdom, container) => {
-  mount(vdom, container);
-};
+
 /**
  * 把虚拟dom转为真实dom
  * @param {*} vdom
