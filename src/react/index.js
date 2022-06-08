@@ -13,6 +13,8 @@ import {
   useMemo,
   useReducer,
   useEffect,
+  useLayoutEffect,
+  useRef,
 } from "./react-dom";
 /**
  * 用来创建react元素（虚拟dom）的工厂方法
@@ -106,6 +108,10 @@ function useContext(Context) {
   return Context._currentValue;
 }
 
+function useImperativeHandle(ref, factory) {
+  ref.current = factory()
+}
+
 const React = {
   createElement,
   Component,
@@ -122,6 +128,9 @@ const React = {
   useReducer,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useRef,
+  useImperativeHandle
 };
 
 export default React;
@@ -141,4 +150,7 @@ export {
   useReducer,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useRef,
+  useImperativeHandle
 };

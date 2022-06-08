@@ -122,6 +122,37 @@ export function useEffect(callback, deps) {
   }
   hookIndex++;
 }
+
+export function useLayoutEffect(callback, deps) {
+  const currentIndex = hookIndex;
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldDestroy, oldDeps] = hookStates[hookIndex];
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
+    if (!same) {
+      // 开启宏任务 页面渲染后执行回调函数
+      queueMicrotask(() => {
+        // 在执行回调之前，先执行上次回调函数的清理函数
+        if (typeof oldDestroy === "function") oldDestroy();
+        // 执行 callback函数 拿到返回值 销毁函数
+        const destroy = callback();
+        hookStates[currentIndex] = [destroy, deps];
+      });
+    }
+  } else {
+    // 开启宏任务 页面渲染后执行回调函数
+    queueMicrotask(() => {
+      // 执行 callback函数 拿到返回值 销毁函数
+      const destroy = callback();
+      hookStates[currentIndex] = [destroy, deps];
+    });
+  }
+  hookIndex++;
+}
+
+export function useRef(initialState) {
+  hookStates[hookIndex] = hookStates[hookIndex] ?? { current: initialState };
+  return hookStates[hookIndex++];
+}
 /**
  * 查找vdom对应的真实dom节点
  * 类组件和函数组件本身是没有dom的，只是render或者函数组件的返回值才具有真实dom

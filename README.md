@@ -659,3 +659,54 @@ export function useReducer(reducer, initialState) {
   return [hookStates[hookIndex++], dispatch];
 }
 ```
+
+#### useLayoutEffect + useRef
+
+- 其函数签名与 useEffect 相同，但它会在所有的 DOM 变更之后同步调用 effect。
+- useEffect 不会阻塞浏览器渲染，而useLayoutEffect会阻塞浏览器渲染
+- useEffect 会在浏览器渲染结束之后执行，useLayoutEffect则是在DOM更新完毕后，浏览器绘制之前执行
+
+```js
+export function useLayoutEffect(callback, deps) {
+  const currentIndex = hookIndex;
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldDestroy, oldDeps] = hookStates[hookIndex];
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
+    if (!same) {
+      // 开启宏任务 页面渲染后执行回调函数
+      queueMicrotask(() => {
+        // 在执行回调之前，先执行上次回调函数的清理函数
+        if (typeof oldDestroy === "function") oldDestroy();
+        // 执行 callback函数 拿到返回值 销毁函数
+        const destroy = callback();
+        hookStates[currentIndex] = [destroy, deps];
+      });
+    }
+  } else {
+    // 开启宏任务 页面渲染后执行回调函数
+    queueMicrotask(() => {
+      // 执行 callback函数 拿到返回值 销毁函数
+      const destroy = callback();
+      hookStates[currentIndex] = [destroy, deps];
+    });
+  }
+  hookIndex++;
+}
+
+export function useRef(initialState) {
+  hookStates[hookIndex] = hookStates[hookIndex] ?? { current: initialState };
+  return hookStates[hookIndex++];
+}
+```
+
+#### forwardRef + useImperativeHandle
+
+- `forwardRef` 将ref从父组件转发给子组件中的dom元素上，子组件接受props和ref作为参数
+- `useImperativeHandle` 可以放你在使用ref时自定义暴露给父组件的实例值
+- 在大多数情况下，应当避免使用 ref 这样的命令式代码。useImperativeHandle 应当与 forwardRef 一起使用：
+
+```js
+function useImperativeHandle(ref, factory) {
+  ref.current = factory()
+}
+```
