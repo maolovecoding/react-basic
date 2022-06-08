@@ -7,7 +7,13 @@ import {
 } from "./constant";
 import { shallowEqual, wrapToVDom } from "./utils";
 import { Component, PureComponent } from "./component";
-import { useState, useCallback, useMemo, useReducer } from "./react-dom";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useReducer,
+  useEffect,
+} from "./react-dom";
 /**
  * 用来创建react元素（虚拟dom）的工厂方法
  * @param {*} type 类型
@@ -96,6 +102,9 @@ function memo(type, compare = shallowEqual) {
     type,
   };
 }
+function useContext(Context) {
+  return Context._currentValue;
+}
 
 const React = {
   createElement,
@@ -111,6 +120,8 @@ const React = {
   useMemo,
   useCallback,
   useReducer,
+  useContext,
+  useEffect,
 };
 
 export default React;
@@ -128,4 +139,6 @@ export {
   useMemo,
   useCallback,
   useReducer,
+  useContext,
+  useEffect,
 };

@@ -70,4 +70,4 @@
 // }
 // ReactDOM.render(<Sum />, document.getElementById("root"));
 
-import "./test/hooks/3-useReducer";
+import "./test/hooks/5-useEffect";

@@ -41,7 +41,7 @@ export function useMemo(factoryFn, deps) {
   if (typeof hookStates[hookIndex] !== "undefined") {
     const [oldMemo, oldDeps] = hookStates[hookIndex];
     // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
-    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
     if (same) {
       hookIndex++;
       return oldMemo;
@@ -60,7 +60,7 @@ export function useCallback(callback, deps) {
   if (typeof hookStates[hookIndex] !== "undefined") {
     const [oldCallback, oldDeps] = hookStates[hookIndex];
     // 判断依赖数组的每一个元素和老的依赖数组中的每一项是否相同
-    const same = deps.every((dep, index) => dep === oldDeps[index]);
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
     if (same) {
       hookIndex++;
       return oldCallback;
@@ -82,14 +82,45 @@ export function useReducer(reducer, initialState) {
   hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
   let currentIndex = hookIndex;
   function dispatch(action) {
-    hookStates[currentIndex] =
-      typeof reducer === "function"
-        ? reducer(hookStates[currentIndex], action)
-        : // 如果 reducer不是函数 自动转为 useState 那么dispatch函数转为 setState函数 参数是新状态
-          action;
+    // 获取老状态
+    const oldState = hookStates[currentIndex];
+    // 有reducer函数 使用reducer计算新状态
+    if (typeof reducer === "function") {
+      hookStates[currentIndex] = reducer(oldState, action);
+    } else {
+      // 判断action是否是函数 如果是 传入的是老状态 计算新状态
+      hookStates[currentIndex] =
+        typeof action === "function" ? action(oldState) : action;
+    }
     scheduleUpdate();
   }
   return [hookStates[hookIndex++], dispatch];
+}
+
+export function useEffect(callback, deps) {
+  const currentIndex = hookIndex;
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldDestroy, oldDeps] = hookStates[hookIndex];
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
+    if (!same) {
+      // 开启宏任务 页面渲染后执行回调函数
+      setTimeout(() => {
+        // 在执行回调之前，先执行上次回调函数的清理函数
+        if (typeof oldDestroy === "function") oldDestroy();
+        // 执行 callback函数 拿到返回值 销毁函数
+        const destroy = callback();
+        hookStates[currentIndex] = [destroy, deps];
+      });
+    }
+  } else {
+    // 开启宏任务 页面渲染后执行回调函数
+    setTimeout(() => {
+      // 执行 callback函数 拿到返回值 销毁函数
+      const destroy = callback();
+      hookStates[currentIndex] = [destroy, deps];
+    });
+  }
+  hookIndex++;
 }
 /**
  * 查找vdom对应的真实dom节点

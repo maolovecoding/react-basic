@@ -587,3 +587,75 @@ function Counter() {
 
 ReactDOM.render(<Counter />, document.querySelector("#root"));
 ```
+
+#### useContext
+
+- 接收一个 context 对象（React.createContext 的返回值）并返回该 context 的当前值。
+- 当前的 context 值由上层组件中距离当前组件最近的 `<MyContext.Provider>` 的 value prop 决定。
+- 当组件上层最近的 `<MyContext.Provider>` 更新时，该 Hook 会触发重渲染，并使用最新传递给 MyContext provider 的 context value 值。
+- useContext(MyContext) 相当于 class 组件中的 static contextType = MyContext 或者 `<MyContext.Consumer>`。
+- useContext(MyContext) 只是让你能够读取 context 的值以及订阅 context 的变化。你仍然需要在上层组件树中使用 `<MyContext.Provider>` 来为下层组件提供 context。
+
+```js
+function useContext(Context) {
+  return Context._currentValue;
+}
+```
+
+#### useEffect
+
+- 在函数组件主体内（这里指在 React 渲染阶段）改变 DOM、添加订阅、设置定时器、记录日志以及执行其他包含副作用的操作都是不被允许的，因为这可能会产生莫名其妙的 bug 并破坏 UI 的一致性。
+- 使用 useEffect 完成副作用操作。赋值给 useEffect 的函数会在组件渲染到屏幕之后执行。你可以把 effect 看作从 React 的纯函数式世界通往命令式世界的逃生通道。
+- useEffect 就是一个effect hook，给函数组件增加了操作副作用的能力，它跟class组件的componentDidMount、componentDidUpdate，componentWillUnmount具有相同的用途，只不过被合并成了一个API
+- 该Hook接收一个包含命令式，且可能有副作用代码的函数
+
+```js
+export function useEffect(callback, deps) {
+  const currentIndex = hookIndex;
+  if (typeof hookStates[hookIndex] !== "undefined") {
+    const [oldDestroy, oldDeps] = hookStates[hookIndex];
+    const same = deps?.every((dep, index) => dep === oldDeps[index]);
+    if (!same) {
+      // 开启宏任务 页面渲染后执行回调函数
+      setTimeout(() => {
+        // 在执行回调之前，先执行上次回调函数的清理函数
+        if (typeof oldDestroy === "function") oldDestroy();
+        // 执行 callback函数 拿到返回值 销毁函数
+        const destroy = callback();
+        hookStates[currentIndex] = [destroy, deps];
+      });
+    }
+  } else {
+    // 开启宏任务 页面渲染后执行回调函数
+    setTimeout(() => {
+      // 执行 callback函数 拿到返回值 销毁函数
+      const destroy = callback();
+      hookStates[currentIndex] = [destroy, deps];
+    });
+  }
+  hookIndex++;
+}
+```
+
+**需要重构一下useReducer**:
+
+```js
+export function useReducer(reducer, initialState) {
+  hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
+  let currentIndex = hookIndex;
+  function dispatch(action) {
+    // 获取老状态
+    const oldState = hookStates[currentIndex];
+    // 有reducer函数 使用reducer计算新状态
+    if (typeof reducer === "function") {
+      hookStates[currentIndex] = reducer(oldState, action);
+    } else {
+      // 判断action是否是函数 如果是 传入的是老状态 计算新状态
+      hookStates[currentIndex] =
+        typeof action === "function" ? action(oldState) : action;
+    }
+    scheduleUpdate();
+  }
+  return [hookStates[hookIndex++], dispatch];
+}
+```
