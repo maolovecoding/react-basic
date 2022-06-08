@@ -3,9 +3,10 @@ import {
   REACT_ELEMENT,
   REACT_FORWARD_REF,
   REACT_PROVIDER,
+  REACT_MEMO,
 } from "./constant";
-import { wrapToVDom } from "./utils";
-import { Component } from "./component";
+import { shallowEqual, wrapToVDom } from "./utils";
+import { Component, PureComponent } from "./component";
 /**
  * 用来创建react元素（虚拟dom）的工厂方法
  * @param {*} type 类型
@@ -82,15 +83,40 @@ function cloneElement(element, newProps, ...newChildren) {
     props,
   };
 }
+/**
+ * 返回在属性不变的情况下，不重新渲染的组件
+ * @param {*} type 函数组件
+ * @param {*} compare 比较 属性是否相同的方法
+ */
+function memo(type, compare = shallowEqual) {
+  return {
+    $$typeof: REACT_MEMO,
+    compare,
+    type,
+  };
+}
 
 const React = {
   createElement,
   Component,
+  PureComponent,
   createRef,
   forwardRef,
   Children,
   createContext,
   cloneElement,
+  memo,
 };
 
 export default React;
+export {
+  createElement,
+  Component,
+  PureComponent,
+  createRef,
+  forwardRef,
+  Children,
+  createContext,
+  cloneElement,
+  memo,
+};

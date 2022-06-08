@@ -5,6 +5,7 @@ import {
   PLACEMENT,
   REACT_CONTEXT,
   REACT_PROVIDER,
+  REACT_MEMO,
 } from "./constant";
 import { addEvent } from "./event";
 /**
@@ -84,6 +85,8 @@ function updateElement(oldVdom, newVdom) {
     updateConsumerComponent(oldVdom, newVdom);
   } else if (oldVdom.type.$$typeof === REACT_PROVIDER) {
     updateProviderComponent(oldVdom, newVdom);
+  } else if (oldVdom.type.$$typeof === REACT_MEMO) {
+    updateMemoComponent(oldVdom, newVdom);
   } else if (oldVdom.type === REACT_TEXT) {
     // 1. 都是文本节点
     if (oldVdom.props !== newVdom.props) {
@@ -151,6 +154,30 @@ function updateFunctionComponent(oldVdom, newVdom) {
   const newRenderVdom = type(props);
   compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
   newVdom.oldRenderVdom = newRenderVdom;
+}
+
+function updateMemoComponent(oldVdom, newVdom) {
+  const {
+    prevProps,
+    // type就是 react memo对象
+    type: { compare },
+  } = oldVdom;
+  const {
+    type: { type: FunctionComponent },
+    props,
+  } = newVdom;
+  // 比较新老props
+  if (!compare(prevProps, props)) {
+    const parentDOM = findDOM(oldVdom)?.parentNode;
+    if (!parentDOM) return;
+    const newRenderVdom = FunctionComponent(props);
+    compareToVdom(parentDOM, oldVdom.oldRenderVdom, newRenderVdom);
+    newVdom.prevProps = props;
+    newVdom.oldRenderVdom = newRenderVdom;
+  } else {
+    newVdom.prevProps = prevProps;
+    newVdom.oldRenderVdom = oldVdom.oldRenderVdom;
+  }
 }
 /**
  * 对比更新子节点
@@ -393,6 +420,18 @@ const mountProviderComponent = (vdom) => {
   return createDOM(renderVdom);
 };
 
+const mountMemoComponent = (vdom) => {
+  const {
+    type: { type: FunctionComponent },
+    props,
+  } = vdom;
+  const renderVdom = FunctionComponent(props);
+  // TODO 记录一下老的属性对象 放在vdom上
+  vdom.prevProps = props;
+  vdom.oldRenderVdom = renderVdom;
+  return createDOM(renderVdom);
+};
+
 /**
  * 虚拟dom转真实dom
  * @param {*} vdom
@@ -409,6 +448,9 @@ const createDOM = (vdom) => {
   } else if (type?.$$typeof === REACT_PROVIDER) {
     // 消费组件
     return mountProviderComponent(vdom);
+  } else if (type?.$$typeof === REACT_MEMO) {
+    // 消费组件
+    return mountMemoComponent(vdom);
   }
   if (type === REACT_TEXT) {
     // 创建文本节点

@@ -1,4 +1,5 @@
 import { findDOM, compareToVdom } from "./react-dom";
+import { shallowEqual } from "./utils";
 // 更新队列
 export let updateQueue = {
   isBatchingUpdate: false, // 更新队列中有一个标识 是否要进行批量更新
@@ -173,5 +174,17 @@ function shouldUpdate(classInstance, nextProps, nextState) {
   if (willUpdate) {
     // 强制更新
     classInstance.forceUpdate();
+  }
+}
+/**
+ * 纯组件
+ */
+export class PureComponent extends Component {
+  shouldComponentUpdate(newProps, nextState) {
+    // 新属性不相等 或者新状态state不相等 更新 否则不更新
+    return (
+      !shallowEqual(newProps, this.props) ||
+      !shallowEqual(nextState, this.state)
+    );
   }
 }

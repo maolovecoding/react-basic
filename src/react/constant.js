@@ -4,6 +4,8 @@ export const REACT_FORWARD_REF = Symbol("react.forward_ref");
 // 提供和消费者  _currentValue 存储值
 export const REACT_CONTEXT = Symbol("react.context");
 export const REACT_PROVIDER = Symbol("react.provider");
+
+export const REACT_MEMO = Symbol("react.memo");
 // vdom移动
 export const MOVE = "move";
 // vdom新增

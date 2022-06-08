@@ -235,3 +235,164 @@ function cloneElement(element, newProps, ...newChildren) {
   };
 }
 ```
+
+## React性能优化和react hooks
+
+### 性能优化
+
+说性能优化，本质就是为了减少渲染次数。
+
+#### render props
+
+本质上都是为了实现逻辑的复用：
+
+- `render props`是指一种在react组件之间使用一个值为函数的 `prop` 共享代码的简单技术
+- 具有render prop的组件接收一个函数，该函数返回一个 React 元素并调用它而不是实现自己的渲染逻辑
+- render prop 是一个用于告知组件需要渲染什么内容的函数prop
+- 这也是逻辑复用的一种方式
+
+```js
+import React from "../react";
+import ReactDOM from "../react/react-dom";
+
+class MouseTrackerBak extends React.Component {
+  state = {
+    x: 0,
+    y: 0,
+  };
+  handleMouseMove = (e) => {
+    console.log(e.clientX, e.clientY);
+    this.setState({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+  render() {
+    return (
+      <div
+        style={{ background: "#bfa", width: "400px", height: "400px" }}
+        onMouseMove={this.handleMouseMove}
+      >
+        <h3>App</h3>
+        <h3>
+          鼠标位置：x: {this.state.x} y: {this.state.y}
+        </h3>
+      </div>
+    );
+  }
+}
+/**
+ * 这种写法 MouseTracker 类似于公共组件 需要渲染的内容由子组件决定
+ * 自己不处理渲染逻辑
+ */
+class MouseTracker extends React.Component {
+  state = {
+    x: 0,
+    y: 0,
+  };
+  handleMouseMove = (e) => {
+    console.log(e.clientX, e.clientY);
+    this.setState({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+  render() {
+    return (
+      <div
+        style={{ background: "#bfa", width: "400px", height: "400px" }}
+        onMouseMove={this.handleMouseMove}
+      >
+        {/* {this.props.children(this.state)} */}
+        {this.props.render(this.state)}
+      </div>
+    );
+  }
+}
+
+// ReactDOM.render(
+//   <MouseTracker>
+//     {(props) => (
+//       <div>
+//         <h3>App</h3>
+//         <h3>
+//           鼠标位置：x: {props.x} y: {props.y}
+//         </h3>
+//       </div>
+//     )}
+//   </MouseTracker>,
+//   document.querySelector("#root")
+// );
+ReactDOM.render(
+  <MouseTracker
+    // 也可以作为render属性
+    render={(props) => (
+      <div>
+        <h3>App</h3>
+        <h3>
+          鼠标位置：x: {props.x} y: {props.y}
+        </h3>
+      </div>
+    )}
+  />,
+  document.querySelector("#root")
+);
+
+```
+
+**高阶组件实现render props**:
+高阶组件是React最重要的设计模式之一：是必须掌握的。
+
+```js
+import React from "../react";
+import ReactDOM from "../react/react-dom";
+
+function withTracker(OldComponent) {
+  return class MouseTracker extends React.Component {
+    state = {
+      x: 0,
+      y: 0,
+    };
+    handleMouseMove = (e) => {
+      console.log(e.clientX, e.clientY);
+      this.setState({
+        x: e.clientX,
+        y: e.clientY,
+      });
+    };
+    render() {
+      return (
+        <div
+          style={{ background: "#bfa", width: "400px", height: "400px" }}
+          onMouseMove={this.handleMouseMove}
+        >
+          <OldComponent {...this.state} />
+        </div>
+      );
+    }
+  };
+}
+
+function Show(props) {
+  return (
+    <div>
+      <h3>App</h3>
+      <h3>
+        鼠标位置：x: {props.x} y: {props.y}
+      </h3>
+    </div>
+  );
+}
+
+const WithTracker = withTracker(Show);
+
+ReactDOM.render(<WithTracker />, document.querySelector("#root"));
+
+```
+
+#### 性能优化手段
+
+说性能优化，本质就是为了减少渲染次数。
+
+1. react PureComponent
+2. react memo
