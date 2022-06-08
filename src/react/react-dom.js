@@ -32,16 +32,8 @@ const render = (vdom, container) => {
  * @returns
  */
 export function useState(initialState) {
-  // 原来有值（函数组件更新了） 就用已经存在的值 没有则是第一次渲染 用初始值
-  hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
-  let currentIndex = hookIndex;
-  function setState(newState) {
-    // 更新 state
-    hookStates[currentIndex] = newState;
-    // 触发vdom对比更新
-    scheduleUpdate();
-  }
-  return [hookStates[hookIndex++], setState];
+  // 使用 useReducer重构
+  return useReducer(null, initialState);
 }
 
 export function useMemo(factoryFn, deps) {
@@ -80,6 +72,24 @@ export function useCallback(callback, deps) {
     hookStates[hookIndex++] = [callback, deps];
     return callback;
   }
+}
+/**
+ *
+ * @param {*} reducer 改变状态的函数
+ * @param {*} initialState 初始状态
+ */
+export function useReducer(reducer, initialState) {
+  hookStates[hookIndex] = hookStates[hookIndex] ?? initialState;
+  let currentIndex = hookIndex;
+  function dispatch(action) {
+    hookStates[currentIndex] =
+      typeof reducer === "function"
+        ? reducer(hookStates[currentIndex], action)
+        : // 如果 reducer不是函数 自动转为 useState 那么dispatch函数转为 setState函数 参数是新状态
+          action;
+    scheduleUpdate();
+  }
+  return [hookStates[hookIndex++], dispatch];
 }
 /**
  * 查找vdom对应的真实dom节点

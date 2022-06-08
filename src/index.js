@@ -70,4 +70,4 @@
 // }
 // ReactDOM.render(<Sum />, document.getElementById("root"));
 
-import "./test/hooks/2-useCallback";
+import "./test/hooks/3-useReducer";
