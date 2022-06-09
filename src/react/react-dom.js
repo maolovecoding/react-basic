@@ -1,12 +1,12 @@
 import {
   REACT_FORWARD_REF,
   REACT_TEXT,
-  MOVE,
-  PLACEMENT,
   REACT_CONTEXT,
   REACT_PROVIDER,
   REACT_MEMO,
-} from "./constant";
+  REACT_FRAGMENT,
+} from "./reactSymbol";
+import { MOVE, PLACEMENT } from "./reactFlags";
 import { addEvent } from "./event";
 // TODO hooks变量存放位置
 const hookStates = []; // 保存hooks状态值
@@ -226,13 +226,13 @@ export function compareToVdom(parent, oldVdom, newVdom, nextDOM) {
 function updateElement(oldVdom, newVdom) {
   const currentDOM = (newVdom.dom = findDOM(oldVdom));
   // 处理上下文逻辑 提供 消费
-  if (oldVdom.type.$$typeof === REACT_CONTEXT) {
+  if (oldVdom.type?.$$typeof === REACT_CONTEXT) {
     updateConsumerComponent(oldVdom, newVdom);
-  } else if (oldVdom.type.$$typeof === REACT_PROVIDER) {
+  } else if (oldVdom.type?.$$typeof === REACT_PROVIDER) {
     updateProviderComponent(oldVdom, newVdom);
-  } else if (oldVdom.type.$$typeof === REACT_MEMO) {
+  } else if (oldVdom.type?.$$typeof === REACT_MEMO) {
     updateMemoComponent(oldVdom, newVdom);
-  } else if (oldVdom.type === REACT_TEXT) {
+  } else if (oldVdom.$$typeof === REACT_TEXT) {
     // 1. 都是文本节点
     if (oldVdom.props !== newVdom.props) {
       // 更新dom的文本内容即可
@@ -421,7 +421,7 @@ function updateChildren(parentDOM, oldVChildren, newVChildren) {
  * @param {*} vdom
  */
 function unMountVdom(vdom) {
-  const { type, props, ref } = vdom;
+  const { props, ref } = vdom;
   // 获取真实的dom对象
   const currentDOM = findDOM(vdom);
   // TODO 子组件生命周期 componentWillUnmount
@@ -583,7 +583,8 @@ const mountMemoComponent = (vdom) => {
  * @param {*} vdom
  */
 const createDOM = (vdom) => {
-  const { type, props, ref } = vdom;
+  // debugger
+  const { type, props, ref, $$typeof } = vdom;
   let dom;
   // 转发ref的高阶函数
   if (type?.$$typeof === REACT_FORWARD_REF) {
@@ -597,10 +598,12 @@ const createDOM = (vdom) => {
   } else if (type?.$$typeof === REACT_MEMO) {
     // 消费组件
     return mountMemoComponent(vdom);
-  }
-  if (type === REACT_TEXT) {
+  } else if ($$typeof === REACT_TEXT) {
     // 创建文本节点
     dom = document.createTextNode(props);
+  } else if (type === REACT_FRAGMENT) {
+    // 文档片段
+    dom = document.createDocumentFragment();
   } else if (typeof type === "function") {
     // 区分是函数式组件还是类组件
     if (type.isReactComponent) {
@@ -614,11 +617,11 @@ const createDOM = (vdom) => {
   if (props) {
     updateProps(dom, null, props);
     const children = props.children;
-    if (typeof children === "object" && children.type) {
+    if (Array.isArray(children)) {
+      reconcileChildren(children, dom);
+    } else if (typeof children === "object") {
       children.mountIndex = 0;
       mount(children, dom);
-    } else if (Array.isArray(children)) {
-      reconcileChildren(children, dom);
     }
   }
   // 虚拟节点记录真实dom

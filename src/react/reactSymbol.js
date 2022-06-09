@@ -6,7 +6,4 @@ export const REACT_CONTEXT = Symbol("react.context");
 export const REACT_PROVIDER = Symbol("react.provider");
 
 export const REACT_MEMO = Symbol("react.memo");
-// vdom移动
-export const MOVE = "move";
-// vdom新增
-export const PLACEMENT = "placement";
+export const REACT_FRAGMENT = Symbol("react.fragment");

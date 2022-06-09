@@ -4,7 +4,8 @@ import {
   REACT_FORWARD_REF,
   REACT_PROVIDER,
   REACT_MEMO,
-} from "./constant";
+  REACT_FRAGMENT,
+} from "./reactSymbol";
 import { shallowEqual, wrapToVDom } from "./utils";
 import { Component, PureComponent } from "./component";
 import {
@@ -130,7 +131,8 @@ const React = {
   useEffect,
   useLayoutEffect,
   useRef,
-  useImperativeHandle
+  useImperativeHandle,
+  Fragment:REACT_FRAGMENT,
 };
 
 export default React;
@@ -152,5 +154,6 @@ export {
   useEffect,
   useLayoutEffect,
   useRef,
-  useImperativeHandle
+  useImperativeHandle,
+  REACT_FRAGMENT as Fragment,
 };
